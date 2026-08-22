@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+
+<title>Jelly Blast</title>
+
+<style>
+* {
+  box-sizing: border-box;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: linear-gradient(180deg, #fff5fb, #eaf8ff);
+  font-family: Arial, sans-serif;
+  color: #29284d;
+  overflow-x: hidden;
+  touch-action: none;
+}
+
+#game {
+  width: min(100%, 520px);
+  margin: auto;
+  padding: 15px;
+}
+
+header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+h1 {
+  margin: 0;
+  font-size: 32px;
+}
+
+#scoreBox {
+  background: white;
+  padding: 8px 14px;
+  border-radius: 20px;
+  font-weight: bold;
+  box-shadow: 0 3px 10px #0002;
+}
+
+#board {
+  width: min(92vw, 440px);
+  aspect-ratio: 1;
+  margin: 18px auto;
+  padding: 7px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 5px;
+  background: #c9d8ee;
+  border-radius: 23px;
+}
+
+.cell {
+  background: #eaf0f8;
+  border-radius: 8px;
+}
+
+.jelly {
+  width: 92%;
+  height: 92%;
+  margin: 4%;
+  border-radius: 25%;
+  box-shadow:
+    inset 3px 3px 5px #ffffffaa,
+    inset -4px -4px 6px #0003,
+    0 2px 3px #0003;
+}
+
+.blue {
+  background: linear-gradient(145deg,#6bd0ff,#258ef0);
+}
+
+.pink {
+  background: linear-gradient(145deg,#ff9bcf,#ed4d91);
+}
+
+.green {
+  background: linear-gradient(145deg,#91ed9e,#31b85b);
+}
+
+.yellow {
+  background: linear-gradient(145deg,#ffed75,#ffb51b);
+}
+
+.purple {
+  background: linear-gradient(145deg,#caa0ff,#8050dc);
+}
+
+.orange {
+  background: linear-gradient(145deg,#ffb47c,#ed6a2d);
+}
+
+#pieces {
+  height: 150px;
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.slot {
+  width: 32%;
+  height: 130px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.piece {
+  display: grid;
+  gap: 4px;
+  position: relative;
+  touch-action: none;
+}
+
+.mini {
+  width: 27px;
+  height: 27px;
+  border-radius: 25%;
+  box-shadow:
+    inset 3px 3px 4px #ffffffaa,
+    inset -3px -3px 4px #0003;
+}
+
+.dragging {
+  position: fixed !important;
+  z-index: 9999;
+  pointer-events: none;
+  transform: scale(1.15);
+  filter: drop-shadow(0 12px 10px #0004);
+}
+
+#hint {
+  text-align: center;
+  font-size: 14px;
+  font-weight: bold;
+  opacity: .55;
+}
+
+button {
+  display: block;
+  margin: 10px auto;
+  padding: 12px 24px;
+  border: 0;
+  border-radius: 20px;
+  background: #29284d;
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+}
+</style>
+</head>
+
+<body>
+
+<div id="game">
+
+<header>
+  <h1>🍬 Jelly Blast</h1>
+
+  <div id="scoreBox">
+    ⭐ <span id="score">0</span>
+  </div>
+</header>
+
+<div id="board"></div>
+
+<div id="pieces"></div>
+
+<div id="hint">
+  Hold a jelly and drag it onto the board!
+</div>
+
+<button id="newGame">
+  New Game
+</button>
+
+</div>
+
+<script>
+
+const SIZE = 8;
+
+const COLORS = [
+  "blue",
+  "pink",
+  "green",
+  "yellow",
+  "purple",
+  "orange"
+];
+
+const SHAPES = [
+
+  [[0,0]],
+
+  [[0,0],[1,0]],
+
+  [[0,0],[0,1]],
+
+  [[0,0],[1,0],[2,0]],
+
+  [[0,0],[0,1],[0,2]],
+
+  [[0,0],[1,0],[0,1],[1,1]],
+
+  [[0,0],[1,0],[2,0],[1,1]],
+
+  [[0,0],[0,1],[0,2],[1,2]],
+
+  [[0,0],[1,0],[2,0],[0,1]],
+
+  [[0,0],[1,0],[2,0],[2,1]],
+
+  [[0,0],[0,1],[1,1],[2,1]],
+
+  [[0,0],[1,0],[1,1],[2,1]],
+
+  [[0,0],[0,1],[0,2],[1,0],[1,1]],
+
+  [[0,0],[1,0],[2,0],[1,1],[1,2]],
+
+  [[0,0],[0,1],[0,2],[1,0],[1,1]]
+
+];
+
+let grid = [];
+let score = 0;
+
+const board = document.getElementById("board");
+const pieces = document.getElementById("pieces");
+const scoreText = document.getElementById("score");
+
+
+// NEW GAME
+
+function newGame() {
+
+  grid = Array.from(
+    {length: SIZE},
+    () => Array(SIZE).fill(null)
+  );
+
+  score = 0;
+
+  scoreText.textContent = "0";
+
+  drawBoard();
+
+  makePieces();
+}
+
+
+// DRAW BOARD
+
+function drawBoard() {
+
+  board.innerHTML = "";
+
+  for (let r = 0; r < SIZE; r++) {
+
+    for (let c = 0; c < SIZE; c++) {
+
+      const cell =
+        document.createElement("div");
+
+      cell.className = "cell";
+
+      if (grid[r][c]) {
+
+        const jelly =
+          document.createElement("div");
+
+        jelly.className =
+          "jelly " + grid[r][c];
+
+        cell.appendChild(jelly);
+      }
+
+      board.appendChild(cell);
+    }
+  }
+}
+
+
+// RANDOM PIECE
+
+function randomPiece() {
+
+  return {
+
+    shape:
+      SHAPES[
+        Math.floor(
+          Math.random() * SHAPES.length
+        )
+      ],
+
+    color:
+      COLORS[
+        Math.floor(
+          Math.random() * COLORS.length
+        )
+      ]
+
+  };
+}
+
+
+// CREATE THREE PIECES
+
+function makePieces() {
+
+  pieces.innerHTML = "";
+
+  for (let i = 0; i < 3; i++) {
+
+    createPiece(
+      randomPiece()
+    );
+  }
+}
+
+
+// CREATE PIECE
+
+function createPiece(data) {
+
+  const slot =
+    document.createElement("div");
+
+  slot.className = "slot";
+
+  const piece =
+    document.createElement("div");
+
+  piece.className = "piece";
+
+  piece.dataset.shape =
+    JSON.stringify(data.shape);
+
+  piece.dataset.color =
+    data.color;
+
+
+  const width =
+    Math.max(
+      ...data.shape.map(
+        block => block[0]
+      )
+    ) + 1;
+
+
+  piece.style.gridTemplateColumns =
+    `repeat(${width}, 27px)`;
+
+
+  data.shape.forEach(
+    ([x,y]) => {
+
+      const block =
+        document.createElement("div");
+
+      block.className =
+        "mini " + data.color;
+
+      block.style.gridColumn =
+        x + 1;
+
+      block.style.gridRow =
+        y + 1;
+
+      piece.appendChild(block);
+
+    }
+  );
+
+
+  slot.appendChild(piece);
+
+  pieces.appendChild(slot);
+
+
+  piece.addEventListener(
+    "pointerdown",
+    startDrag
+  );
+}
+
+
+// DRAGGING
+
+function startDrag(event) {
+
+  event.preventDefault();
+
+  const piece =
+    event.currentTarget;
+
+  const shape =
+    JSON.parse(
+      piece.dataset.shape
+    );
+
+  const color =
+    piece.dataset.color;
+
+
+  const original =
+    piece.getBoundingClientRect();
+
+
+  // Remember where the piece was grabbed.
+
+  const grabX =
+    event.clientX -
+    original.left;
+
+  const grabY =
+    event.clientY -
+    original.top;
+
+
+  // Create the moving copy.
+
+  const ghost =
+    piece.cloneNode(true);
+
+  ghost.classList.add(
+    "dragging"
+  );
+
+  document.body.appendChild(
+    ghost
+  );
+
+
+  function move(event) {
+
+    ghost.style.left =
+      (
+        event.clientX -
+        grabX
+      ) + "px";
+
+    ghost.style.top =
+      (
+        event.clientY -
+        grabY -
+        70
+      ) + "px";
+  }
+
+
+  move(event);
+
+
+  function drop(event) {
+
+    document.removeEventListener(
+      "pointermove",
+      move
+    );
+
+    document.removeEventListener(
+      "pointerup",
+      drop
+    );
+
+
+    const ghostRect =
+      ghost.getBoundingClientRect();
+
+    const boardRect =
+      board.getBoundingClientRect();
+
+    const cell =
+      boardRect.width / SIZE;
+
+
+    /*
+      Use the CENTER of the ENTIRE
+      dragged shape.
+    */
+
+    const centerX =
+      ghostRect.left +
+      ghostRect.width / 2;
+
+    const centerY =
+      ghostRect.top +
+      ghostRect.height / 2;
+
+
+    /*
+      Find the size of the entire shape.
+    */
+
+    const shapeWidth =
+      Math.max(
+        ...shape.map(
+          block => block[0]
+        )
+      ) + 1;
+
+    const shapeHeight =
+      Math.max(
+        ...shape.map(
+          block => block[1]
+        )
+      ) + 1;
+
+
+    /*
+      Convert the center into board cells.
+    */
+
+    const centerCol =
+      (centerX - boardRect.left) /
+      cell;
+
+    const centerRow =
+      (centerY - boardRect.top) /
+      cell;
+
+
+    /*
+      Snap the WHOLE PIECE to the
+      nearest grid position.
+    */
+
+    const col =
+      Math.round(
+        centerCol -
+        shapeWidth / 2
+      );
+
+    const row =
+      Math.round(
+        centerRow -
+        shapeHeight / 2
+      );
+
+
+    ghost.remove();
+
+
+    /*
+      Only place it if the ENTIRE
+      shape fits.
+    */
+
+    if (
+      canPlace(
+        shape,
+        row,
+        col
+      )
+    ) {
+
+      placePiece(
+        shape,
+        row,
+        col,
+        color
+      );
+
+
+      score +=
+        shape.length;
+
+
+      clearLines();
+
+
+      scoreText.textContent =
+        score;
+
+
+      /*
+        Remove the piece that was used.
+      */
+
+      piece.parentElement.remove();
+
+
+      /*
+        Generate a brand-new piece.
+      */
+
+      createPiece(
+        randomPiece()
+      );
+    }
+  }
+
+
+  document.addEventListener(
+    "pointermove",
+    move
+  );
+
+
+  document.addEventListener(
+    "pointerup",
+    drop
+  );
+}
+
+
+// CHECK IF PIECE FITS
+
+function canPlace(
+  shape,
+  row,
+  col
+) {
+
+  return shape.every(
+    ([x,y]) => {
+
+      const r =
+        row + y;
+
+      const c =
+        col + x;
+
+
+      return (
+        r >= 0 &&
+        r < SIZE &&
+        c >= 0 &&
+        c < SIZE &&
+        !grid[r][c]
+      );
+
+    }
+  );
+}
+
+
+// PLACE PIECE
+
+function placePiece(
+  shape,
+  row,
+  col,
+  color
+) {
+
+  shape.forEach(
+    ([x,y]) => {
+
+      grid[row + y][col + x] =
+        color;
+
+    }
+  );
+
+
+  drawBoard();
+}
+
+
+// CLEAR LINES
+
+function clearLines() {
+
+  const rows = [];
+  const cols = [];
+
+
+  for (
+    let r = 0;
+    r < SIZE;
+    r++
+  ) {
+
+    if (
+      grid[r].every(Boolean)
+    ) {
+
+      rows.push(r);
+    }
+  }
+
+
+  for (
+    let c = 0;
+    c < SIZE;
+    c++
+  ) {
+
+    let full = true;
+
+    for (
+      let r = 0;
+      r < SIZE;
+      r++
+    ) {
+
+      if (!grid[r][c]) {
+
+        full = false;
+
+        break;
+      }
+    }
+
+
+    if (full) {
+
+      cols.push(c);
+    }
+  }
+
+
+  rows.forEach(
+    row => {
+
+      for (
+        let c = 0;
+        c < SIZE;
+        c++
+      ) {
+
+        grid[row][c] = null;
+      }
+    }
+  );
+
+
+  cols.forEach(
+    col => {
+
+      for (
+        let r = 0;
+        r < SIZE;
+        r++
+      ) {
+
+        grid[r][col] = null;
+      }
+    }
+  );
+
+
+  if (
+    rows.length ||
+    cols.length
+  ) {
+
+    score +=
+      (
+        rows.length +
+        cols.length
+      ) * 10;
+
+
+    scoreText.textContent =
+      score;
+
+
+    drawBoard();
+  }
+}
+
+
+// NEW GAME BUTTON
+
+document
+  .getElementById("newGame")
+  .addEventListener(
+    "click",
+    newGame
+  );
+
+
+// START GAME
+
+newGame();
+
+</script>
+
+</body>
+</html>
