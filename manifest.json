@@ -1,0 +1,10 @@
+{
+  "name": "Jelly Blast",
+  "short_name": "Jelly Blast",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f7f2f8",
+  "theme_color": "#29264f",
+  "orientation": "portrait",
+  "icons": []
+}
