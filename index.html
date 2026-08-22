@@ -1,0 +1,331 @@
+<script>
+const SIZE = 8;
+
+const colors = [
+  "blue","pink","green","yellow","purple","orange"
+];
+
+const shapes = [
+  [[0,0]],
+  [[0,0],[1,0]],
+  [[0,0],[0,1]],
+  [[0,0],[1,0],[2,0]],
+  [[0,0],[0,1],[0,2]],
+  [[0,0],[1,0],[0,1],[1,1]],
+  [[0,0],[1,0],[2,0],[1,1]],
+  [[0,0],[0,1],[0,2],[1,2]],
+  [[0,0],[1,0],[2,0],[0,1]],
+  [[0,0],[1,0],[2,0],[2,1]],
+  [[0,0],[0,1],[1,1],[2,1]],
+  [[0,0],[1,0],[1,1],[2,1]],
+  [[0,0],[0,1],[1,0],[2,0],[2,1]],
+  [[0,0],[1,0],[2,0],[1,1],[1,2]],
+  [[0,0],[0,1],[0,2],[1,0],[1,1]]
+];
+
+let board = [];
+let score = 0;
+
+const boardEl = document.getElementById("board");
+const piecesEl = document.getElementById("pieces");
+const scoreEl = document.getElementById("score");
+
+function newGame() {
+  board = Array.from(
+    {length: SIZE},
+    () => Array(SIZE).fill(null)
+  );
+
+  score = 0;
+  scoreEl.textContent = "Score: 0";
+
+  drawBoard();
+  makePieces();
+}
+
+function drawBoard() {
+  boardEl.innerHTML = "";
+
+  for (let r = 0; r < SIZE; r++) {
+    for (let c = 0; c < SIZE; c++) {
+
+      const cell = document.createElement("div");
+      cell.className = "cell";
+
+      if (board[r][c]) {
+        cell.classList.add("filled");
+        cell.classList.add(board[r][c]);
+      }
+
+      boardEl.appendChild(cell);
+    }
+  }
+}
+
+function randomPiece() {
+
+  const shape =
+    shapes[Math.floor(Math.random() * shapes.length)];
+
+  const color =
+    colors[Math.floor(Math.random() * colors.length)];
+
+  return {shape, color};
+}
+
+function makePieces() {
+
+  piecesEl.innerHTML = "";
+
+  for (let i = 0; i < 3; i++) {
+    createPiece(randomPiece());
+  }
+}
+
+function createPiece(data) {
+
+  const piece = document.createElement("div");
+
+  piece.className = "piece";
+
+  piece.dataset.shape = JSON.stringify(data.shape);
+  piece.dataset.color = data.color;
+
+  data.shape.forEach(([x,y]) => {
+
+    const block = document.createElement("div");
+
+    block.className = "mini " + data.color;
+
+    block.style.gridColumn = x + 1;
+    block.style.gridRow = y + 1;
+
+    piece.appendChild(block);
+  });
+
+  setupDrag(piece);
+
+  piecesEl.appendChild(piece);
+}
+
+function setupDrag(piece) {
+
+  piece.addEventListener("pointerdown", startDrag);
+
+  function startDrag(e) {
+
+    e.preventDefault();
+
+    const shape = JSON.parse(piece.dataset.shape);
+    const color = piece.dataset.color;
+
+    const rect = piece.getBoundingClientRect();
+
+    // Remember exactly where the finger grabbed the piece.
+    const grabX = e.clientX - rect.left;
+    const grabY = e.clientY - rect.top;
+
+    const clone = piece.cloneNode(true);
+
+    clone.classList.add("dragging");
+
+    document.body.appendChild(clone);
+
+    function move(ev) {
+
+      clone.style.left =
+        (ev.clientX - grabX) + "px";
+
+      clone.style.top =
+        (ev.clientY - grabY) + "px";
+    }
+
+    move(e);
+
+    function end(ev) {
+
+      document.removeEventListener(
+        "pointermove",
+        move
+      );
+
+      document.removeEventListener(
+        "pointerup",
+        end
+      );
+
+      // Find where the CENTER of the actual jelly piece is.
+      const cloneRect = clone.getBoundingClientRect();
+
+      const centerX =
+        cloneRect.left + cloneRect.width / 2;
+
+      const centerY =
+        cloneRect.top + cloneRect.height / 2;
+
+      clone.remove();
+
+      const position =
+        getBoardPosition(centerX, centerY);
+
+      if (
+        position &&
+        canPlace(
+          shape,
+          position.r,
+          position.c
+        )
+      ) {
+
+        place(
+          shape,
+          position.r,
+          position.c,
+          color
+        );
+
+        score += shape.length;
+
+        clearLines();
+
+        scoreEl.textContent =
+          "Score: " + score;
+
+        // 🔄 IMMEDIATELY regenerate this piece.
+        piece.remove();
+
+        createPiece(randomPiece());
+
+      }
+    }
+
+    document.addEventListener(
+      "pointermove",
+      move
+    );
+
+    document.addEventListener(
+      "pointerup",
+      end
+    );
+  }
+}
+
+function getBoardPosition(x,y) {
+
+  const rect =
+    boardEl.getBoundingClientRect();
+
+  if (
+    x < rect.left ||
+    x > rect.right ||
+    y < rect.top ||
+    y > rect.bottom
+  ) {
+    return null;
+  }
+
+  const cellSize =
+    rect.width / SIZE;
+
+  const c =
+    Math.floor(
+      (x - rect.left) / cellSize
+    );
+
+  const r =
+    Math.floor(
+      (y - rect.top) / cellSize
+    );
+
+  return {r,c};
+}
+
+function canPlace(shape,r,c) {
+
+  for (const [x,y] of shape) {
+
+    const rr = r + y;
+    const cc = c + x;
+
+    if (
+      rr < 0 ||
+      rr >= SIZE ||
+      cc < 0 ||
+      cc >= SIZE ||
+      board[rr][cc]
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function place(shape,r,c,color) {
+
+  shape.forEach(([x,y]) => {
+
+    board[r+y][c+x] = color;
+
+  });
+
+  drawBoard();
+}
+
+function clearLines() {
+
+  const rows = [];
+  const cols = [];
+
+  for (let r = 0; r < SIZE; r++) {
+
+    if (board[r].every(Boolean)) {
+      rows.push(r);
+    }
+  }
+
+  for (let c = 0; c < SIZE; c++) {
+
+    let full = true;
+
+    for (let r = 0; r < SIZE; r++) {
+
+      if (!board[r][c]) {
+        full = false;
+        break;
+      }
+    }
+
+    if (full) {
+      cols.push(c);
+    }
+  }
+
+  if (rows.length || cols.length) {
+
+    rows.forEach(r => {
+
+      for (let c = 0; c < SIZE; c++) {
+        board[r][c] = null;
+      }
+
+    });
+
+    cols.forEach(c => {
+
+      for (let r = 0; r < SIZE; r++) {
+        board[r][c] = null;
+      }
+
+    });
+
+    score +=
+      (rows.length + cols.length) * 10;
+
+    drawBoard();
+  }
+}
+
+newGame();
+</script>
