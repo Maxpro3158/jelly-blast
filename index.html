@@ -601,6 +601,8 @@ function startDrag(event) {
       createPiece(
         randomPiece()
       );
+      
+checkGameOver();      
     }
   }
 
@@ -647,7 +649,36 @@ function canPlace(
     }
   );
 }
+function checkGameOver() {
 
+  const piecesNow =
+    document.querySelectorAll("#pieces .piece");
+
+  for (const piece of piecesNow) {
+
+    const shape =
+      JSON.parse(piece.dataset.shape);
+
+    for (let r = 0; r < SIZE; r++) {
+
+      for (let c = 0; c < SIZE; c++) {
+
+        if (canPlace(shape, r, c)) {
+          return false;
+        }
+
+      }
+
+    }
+
+  }
+
+  gameOver = true;
+
+  alert("GAME OVER!");
+
+  return true;
+}
 
 // PLACE PIECE
 
