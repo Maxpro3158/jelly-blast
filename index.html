@@ -245,7 +245,7 @@ const scoreText = document.getElementById("score");
 // NEW GAME
 
 function newGame() {
-
+gameOver = false;
   grid = Array.from(
     {length: SIZE},
     () => Array(SIZE).fill(null)
